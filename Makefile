@@ -69,10 +69,10 @@ all: spike
 newlib: $(RISCV)/bin/$(target_newlib)-gcc
 
 
-ifneq ($(RISCV),$(CURDIR)/toolchain)
-$(RISCV)/bin/$(target_linux)-gcc:
-	$(error The RISCV environment variable was set, but is not pointing at a toolchain install tree)
-endif
+#ifneq ($(RISCV),$(CURDIR)/toolchain)
+#$(RISCV)/bin/$(target_linux)-gcc:
+#	$(error The RISCV environment variable was set, but is not pointing at a toolchain install tree)
+#endif
 
 $(toolchain_dest)/bin/$(target_linux)-gcc:
 	mkdir -p $(toolchain_wrkdir)
@@ -229,7 +229,7 @@ clean:
 	-rm spec2017/bbl
 
 mrproper:
-	rm -rf -- $(wrkdir) $(toolchain_dest) $(topdir)/rootfs
+	rm -rf -- $(wrkdir) $(CURDIR)/toolchain $(topdir)/rootfs
 
 .PHONY: spike qemu
 
