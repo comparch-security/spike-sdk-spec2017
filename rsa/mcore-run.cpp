@@ -33,6 +33,11 @@ public:
     for(auto c:prefix) write_csr(0x8F0, FLEXICAS_PFC_CMD|FLEXICAS_PFC_STR_CHAR|((0ull | c) << 16)); // send char
     write_csr(0x8F0, FLEXICAS_PFC_CMD|FLEXICAS_PFC_PREFIX);
   }
+  uint64_t get_llc_acc() {
+    write_csr(0x8F0, FLEXICAS_PFC_CMD|FLEXICAS_PFC_LLC_ACC); // clear pfc string bufferread llc acc
+    uint64_t acc = read_csr(0x8F0);
+    return acc;
+  }
   
 };
 
@@ -53,8 +58,8 @@ void run_cmd(char *argv[], char* envp[], uint64_t max_instret, const std::string
 
   if(!prefix.empty()) pfc.prefix(prefix);
 
-  uint64_t instret_start = read_instret();
-  uint64_t instret_now = instret_start;
+  uint64_t instret_start = pfc.get_llc_acc();
+  uint64_t instret_now = pfc.get_llc_acc();
   //std::cerr << "[timed-run] " << read_time() << ": successfully started with initial reading of " << instret_start << " instructions." << std::endl;
   pfc.start();
   int s, status;
@@ -62,7 +67,7 @@ void run_cmd(char *argv[], char* envp[], uint64_t max_instret, const std::string
     s = waitpid(pid, &status, WNOHANG | WUNTRACED | WCONTINUED);
     if(0 == s) { // child is running
       std::this_thread::sleep_for(100ms);
-      instret_now = read_instret();
+      instret_now = pfc.get_llc_acc();
       //std::cerr << "[timed-run] " << read_time() << ": successfully run " << instret_now - instret_start << " instructions." << std::endl;
     } else break;
   }

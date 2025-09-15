@@ -9,6 +9,7 @@ BOARD ?= spike
 NCORE ?= `nproc`
 SPIKE_SPEC ?= spike -p1
 SPIKE_DUAL ?= spike -p2
+SPIKE_MCORE ?= spike -p4
 SPECKLE ?= /set/to/your/speckle/build/overlay
 
 topdir := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -30,8 +31,10 @@ buildroot_initramfs_sysroot := $(topdir)/rootfs/buildroot_initramfs_sysroot
 
 buildroot_initramfs_sysroot_modifications = \
 	$(buildroot_initramfs_sysroot)/usr/bin/timed-run \
+	$(buildroot_initramfs_sysroot)/usr/bin/mcore-run \
 	$(buildroot_initramfs_sysroot)/usr/bin/mount-spec \
 	$(buildroot_initramfs_sysroot)/usr/bin/run-spec \
+	$(buildroot_initramfs_sysroot)/usr/bin/run-mcore \
 	$(buildroot_initramfs_sysroot)/usr/bin/allocate-hugepages 
 
 linux_srcdir := $(srcdir)/linux
@@ -264,7 +267,13 @@ make_sd: $(bbl)
 $(buildroot_initramfs_sysroot)/usr/bin/timed-run: rsa/timed-run.cpp
 	riscv64-unknown-linux-gnu-g++ -I$(RISCV)/include -static $< -o $@
 
+$(buildroot_initramfs_sysroot)/usr/bin/mcore-run: rsa/mcore-run.cpp
+	riscv64-unknown-linux-gnu-g++ -I$(RISCV)/include -static $< -o $@
+
 $(buildroot_initramfs_sysroot)/usr/bin/run-spec: rsa/run-spec
+	cp $< $@
+
+$(buildroot_initramfs_sysroot)/usr/bin/run-mcore: rsa/run-mcore
 	cp $< $@
 
 $(buildroot_initramfs_sysroot)/usr/bin/mount-spec:
@@ -303,3 +312,14 @@ install-attack: spec2017/custom.patch
 	$(MAKE) -C $(pk_wrkdir) clean
 	echo "$(SPIKE_DUAL) --dtb=$(CURDIR)/spec2017/dual.dtb \$${@:2} --extlib=libvirtio9pdiskdevice.so --device=\"virtio9p,path=\$$1\" $(CURDIR)/spec2017/attack-bbl" > $(RISCV)/bin/spike-attack
 	chmod u+x $(RISCV)/bin/spike-attack
+
+install-mcore: spec2017/custom.patch
+	$(MAKE) -C $(pk_wrkdir) clean
+	cd spec2017 && $(SPIKE_MCORE) --dump-dts bbl > custom.dts
+	cd spec2017 && patch -p1 < custom.patch
+	dtc -O dtb spec2017/custom.dts -o spec2017/mcore.dtb && cp spec2017/mcore.dtb $(pk_wrkdir)/custom.dtb
+	CFLAGS="-mabi=$(ABI) -march=$(ISA)" $(MAKE) -C $(pk_wrkdir) && cp $(bbl) spec2017/mcore-bbl
+	rm $(pk_wrkdir)/custom.dtb
+	$(MAKE) -C $(pk_wrkdir) clean
+	echo "$(SPIKE_MCORE) --dtb=$(CURDIR)/spec2017/mcore.dtb \$${@:1} --extlib=libvirtio9pdiskdevice.so --device=\"virtio9p,path=$(SPECKLE)\" $(CURDIR)/spec2017/mcore-bbl" > $(RISCV)/bin/spike-mcore
+	chmod u+x $(RISCV)/bin/spike-mcore
